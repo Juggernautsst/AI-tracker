@@ -49,103 +49,86 @@ AI-tracker/
 # AI-Tracer系统流程图
 
 ```mermaid
-from web3 import Web3
-import json
-import time
-from pycry.cryk import SchnorrSystem
-from ai_tracer.core import AITracer
+flowchart TD
+    subgraph 初始化与准备
+        A1[初始化Schnorr签名系统]
+        A2[初始化AI-Tracer]
+        A3[生成数据所有者密钥对]
+        A1 --> A2 --> A3
+    end
 
-def run_complete_workflow():
-    print("===== AI-Tracer完整工作流测试 =====")
-    
-    # 1. 连接到以太坊网络
-    web3 = Web3(Web3.HTTPProvider("http://localhost:8545"))
-    if not web3.is_connected():
-        print("无法连接到以太坊节点。请确保Ganache正在运行。")
-        return
-    
-    # 账户设置
-    sender_address = web3.eth.accounts[0]
-    web3.eth.default_account = sender_address
-    
-    # 2. 加载合约
-    contract_address = "YOUR_DEPLOYED_CONTRACT_ADDRESS"  # 替换为实际的合约地址
-    
-    with open("build/contracts/AITracerContract.json", "r") as f:
-        contract_json = json.load(f)
-        contract_abi = contract_json['abi']
-    
-    # 3. 初始化AITracer
-    tracer = AITracer("http://localhost:8545", "/ip4/127.0.0.1/tcp/5001")
-    tracer.set_contract(contract_address, contract_abi)
-    tracer.web3 = web3  # 使用已连接的Web3实例
-    
-    # 4. 初始化加密系统
-    crypto = SchnorrSystem()
-    
-    # 5. 生成密钥对
-    owner_keys = crypto.key_generation()
-    print(f"数据所有者密钥对: {owner_keys}")
-    
-    # 6. 创建AI模型数据
-    ai_model_data = {
-        "name": "深度神经网络",
-        "version": "2.0",
-        "parameters_count": 5000000,
-        "metrics": {
-            "accuracy": 0.97,
-            "precision": 0.96
-        },
-        "training_data_hash": "0xabcdef1234567890",
-        "learning_parameters": {
-            "learning_rate": 0.001,
-            "batch_size": 64,
-            "epochs": 100
-        }
-    }
-    
-    print("处理AI模型数据...")
-    try:
-        # 7. 执行完整处理流程（模拟IPFS交互）
-        tracer.ipfs = None  # 使用模拟模式，不实际连接IPFS
-        
-        # 7.1 生成AI摘要
-        ai_digest = tracer.generate_ai_digest(ai_model_data)
-        print(f"AI摘要已生成: {json.dumps(ai_digest, indent=2)[:100]}...")
-        
-        # 7.2 对AI摘要进行签名
-        digest_str = json.dumps(ai_digest, sort_keys=True)
-        signature = crypto.sign(digest_str, owner_keys["private_key"])
-        print(f"签名已创建: {signature}")
-        
-        # 7.3 将签名和模拟的IPFS哈希上传到区块链
-        ipfs_hash = "QmSim" + digest_str[:40].replace(" ", "")
-        
-        print(f"模拟的IPFS哈希: {ipfs_hash}")
-        print("上传到区块链...")
-        
-        tx_hash = tracer.contract.functions.recordAIDigest(
-            ipfs_hash,
-            signature["e"],
-            signature["s"]
-        ).transact({'from': sender_address})
-        
-        receipt = web3.eth.wait_for_transaction_receipt(tx_hash)
-        print(f"交易已确认，区块号: {receipt['blockNumber']}")
-        
-        # 8. 验证记录
-        record = tracer.contract.functions.getAIDigestRecord(ipfs_hash).call()
-        print("\nAI摘要记录已成功存储在区块链上:")
-        print(f"IPFS哈希: {record[0]}")
-        print(f"签名参数: E={record[1]}, S={record[2]}")
-        print(f"所有者: {record[3]}")
-        print(f"时间戳: {record[4]}")
-        print(f"是否有效: {record[5]}")
-        
-        print("\n===== 工作流程测试完成 =====")
-        
-    except Exception as e:
-        print(f"错误: {e}")
+    subgraph AI摘要生成与加密
+        B1[收集AI模型数据]
+        B2[生成AI摘要]
+        B3[对AI摘要进行签名]
+        B4[加密AI摘要]
+        B1 --> B2 --> B3 --> B4
+    end
 
-if __name__ == "__main__":
-    run_complete_workflow()
+    subgraph 分布式存储
+        C1[将加密摘要上传到IPFS]
+        C2[获取IPFS哈希指针]
+        C1 --> C2
+    end
+
+    subgraph 区块链记录
+        D1[准备区块链交易]
+        D2[调用智能合约recordAIDigest]
+        D3[区块链记录AI摘要信息]
+        D4[触发AIDigestRecorded事件]
+        D1 --> D2 --> D3 --> D4
+    end
+
+    subgraph 验证流程
+        E1[从区块链获取记录]
+        E2[从IPFS获取加密摘要]
+        E3[验证签名]
+        E4[验证记录完整性]
+        E1 --> E3
+        E2 --> E3
+        E3 --> E4
+    end
+
+    subgraph 安全共享流程
+        F1[生成接收者密钥对]
+        F2[生成代理重加密密钥]
+        F3[重加密AI摘要]
+        F4[接收者解密]
+        F1 --> F2 --> F3 --> F4
+    end
+
+    subgraph 管理与更新
+        G1[查询AI摘要状态]
+        G2[标记AI摘要为无效]
+        G3[更新区块链状态]
+        G1 --> G2 --> G3
+    end
+
+    A3 --> B1
+    B4 --> C1
+    C2 --> D1
+    B3 --> D1
+    
+    D4 -.-> E1
+    C2 -.-> E2
+    A3 -.-> E3
+    
+    A3 --> F2
+    F1 --> F2
+    C2 --> F3
+    
+    D4 -.-> G1
+
+    subgraph 智能合约AITracerContract
+        H1[存储记录]
+        H2[检索记录]
+        H3[验证所有权]
+        H4[更新状态]
+        H1 <--> H2
+        H2 <--> H3
+        H3 <--> H4
+    end
+    
+    D2 --> H1
+    E1 --> H2
+    G2 --> H3 --> H4
